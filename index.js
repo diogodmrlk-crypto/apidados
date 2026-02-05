@@ -1,94 +1,58 @@
 const express = require("express");
 const cors = require("cors");
-const bodyParser = require("body-parser");
-
 const app = express();
-const PORT = process.env.PORT || 3000;
 
+// Configurações
 app.use(cors());
-app.use(bodyParser.json());
+app.use(express.json());
 
-// ------------------------------
-// Dados em memória
-// ------------------------------
+// Banco em memória (substitua por JSON se quiser persistir)
 let users = [
   {
     username: "Ferraodev",
     password: "Diogomiranda00k",
-    avatar: "https://via.placeholder.com/60",
     admin: true,
-    plan: "Admin",
-    planEnd: null,
+    avatar: "https://via.placeholder.com/60",
+    plan: null,
     keysGenerated: 0,
     planLimit: 0,
-    devices: [],
+    planEnd: null,
     keys: []
   }
 ];
 
-// ------------------------------
 // Rotas
-// ------------------------------
-
-// Retorna todos os usuários
 app.get("/dados", (req, res) => {
   res.json({ users });
 });
 
-// Criar usuário normal
-app.post("/usuario", (req, res) => {
+app.post("/dados", (req, res) => {
   const { username, password, avatar } = req.body;
-  if (!username || !password)
-    return res.status(400).json({ error: "Username e password obrigatórios" });
-
-  if (users.find(u => u.username === username))
-    return res.status(400).json({ error: "Usuário já existe" });
+  if(!username || !password) return res.status(400).json({ error: "Usuário e senha obrigatórios" });
+  if(users.find(u => u.username === username)) return res.status(400).json({ error: "Usuário já existe" });
 
   const newUser = {
     username,
     password,
-    avatar: avatar || "",
+    avatar: avatar || "https://via.placeholder.com/60",
     admin: false,
     plan: null,
-    planEnd: null,
     keysGenerated: 0,
     planLimit: 0,
-    devices: [],
+    planEnd: null,
     keys: []
   };
-
   users.push(newUser);
   res.json({ success: true, user: newUser });
 });
 
-// Login
-app.post("/login", (req, res) => {
-  const { username, password } = req.body;
-  const user = users.find(u => u.username === username && u.password === password);
-  if (!user) return res.status(400).json({ error: "Usuário ou senha incorretos" });
-  res.json({ success: true, user });
+app.patch("/dados/:username", (req, res) => {
+  const u = users.find(x => x.username === req.params.username);
+  if(!u) return res.status(404).json({ error: "Usuário não encontrado" });
+  Object.assign(u, req.body);
+  res.json({ success: true, user: u });
 });
 
-// Atualizar plano de usuário
-app.post("/plan", (req, res) => {
-  const { username, plan, planLimit, planEnd } = req.body;
-  const user = users.find(u => u.username === username);
-  if (!user) return res.status(400).json({ error: "Usuário não encontrado" });
-
-  user.plan = plan || user.plan;
-  user.planLimit = planLimit || user.planLimit;
-  user.planEnd = planEnd || user.planEnd;
-  res.json({ success: true, user });
-});
-
-// Resetar devices
-app.post("/reset-device", (req, res) => {
-  const { username } = req.body;
-  const user = users.find(u => u.username === username);
-  if (!user) return res.status(400).json({ error: "Usuário não encontrado" });
-
-  user.devices = [];
-  res.json({ success: true });
-});
-
-app.listen(PORT, () => console.log(`API de usuários rodando na porta ${PORT}`));
+// Porta padrão Vercel
+const port = process.env.PORT || 3000;
+app.listen(port, () => console.log(`API rodando na porta ${port}`));
