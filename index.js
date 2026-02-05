@@ -1,58 +1,80 @@
+
 const express = require("express");
 const cors = require("cors");
+const fs = require("fs-extra");
 const app = express();
 
-// Configurações
 app.use(cors());
 app.use(express.json());
 
-// Banco em memória (substitua por JSON se quiser persistir)
-let users = [
-  {
-    username: "Ferraodev",
-    password: "Diogomiranda00k",
-    admin: true,
-    avatar: "https://via.placeholder.com/60",
-    plan: null,
-    keysGenerated: 0,
-    planLimit: 0,
-    planEnd: null,
-    keys: []
-  }
-];
+const USERS_FILE = "./users.json";
 
-// Rotas
-app.get("/dados", (req, res) => {
-  res.json({ users });
+// Função para ler JSON
+async function readUsers() {
+    const data = await fs.readFile(USERS_FILE, "utf8");
+    return JSON.parse(data);
+}
+
+// Função para salvar JSON
+async function saveUsers(users) {
+    await fs.writeFile(USERS_FILE, JSON.stringify(users, null, 2));
+}
+
+// GET todos usuários
+app.get("/dados", async (req, res) => {
+    try {
+        const data = await readUsers();
+        res.json(data);
+    } catch (e) {
+        res.status(500).json({ error: "Erro ao ler usuários" });
+    }
 });
 
-app.post("/dados", (req, res) => {
-  const { username, password, avatar } = req.body;
-  if(!username || !password) return res.status(400).json({ error: "Usuário e senha obrigatórios" });
-  if(users.find(u => u.username === username)) return res.status(400).json({ error: "Usuário já existe" });
+// POST criar usuário
+app.post("/dados", async (req, res) => {
+    try {
+        const { username, password, avatar } = req.body;
+        if (!username || !password) return res.status(400).json({ error: "Usuário e senha obrigatórios" });
 
-  const newUser = {
-    username,
-    password,
-    avatar: avatar || "https://via.placeholder.com/60",
-    admin: false,
-    plan: null,
-    keysGenerated: 0,
-    planLimit: 0,
-    planEnd: null,
-    keys: []
-  };
-  users.push(newUser);
-  res.json({ success: true, user: newUser });
+        const data = await readUsers();
+        if (data.users.find(u => u.username === username)) return res.status(400).json({ error: "Usuário já existe" });
+
+        const newUser = {
+            username,
+            password,
+            avatar: avatar || "https://via.placeholder.com/60",
+            admin: false,
+            plan: null,
+            keysGenerated: 0,
+            planLimit: 0,
+            planEnd: null,
+            keys: []
+        };
+
+        data.users.push(newUser);
+        await saveUsers(data);
+        res.json({ success: true, user: newUser });
+    } catch (e) {
+        res.status(500).json({ error: "Erro ao salvar usuário" });
+    }
 });
 
-app.patch("/dados/:username", (req, res) => {
-  const u = users.find(x => x.username === req.params.username);
-  if(!u) return res.status(404).json({ error: "Usuário não encontrado" });
-  Object.assign(u, req.body);
-  res.json({ success: true, user: u });
+// PATCH atualizar usuário
+app.patch("/dados/:username", async (req, res) => {
+    try {
+        const username = req.params.username;
+        const data = await readUsers();
+        const user = data.users.find(u => u.username === username);
+        if (!user) return res.status(404).json({ error: "Usuário não encontrado" });
+
+        Object.assign(user, req.body);
+        await saveUsers(data);
+        res.json({ success: true, user });
+    } catch (e) {
+        res.status(500).json({ error: "Erro ao atualizar usuário" });
+    }
 });
 
-// Porta padrão Vercel
+// Porta Vercel
 const port = process.env.PORT || 3000;
 app.listen(port, () => console.log(`API rodando na porta ${port}`));
