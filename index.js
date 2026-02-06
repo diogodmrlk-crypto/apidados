@@ -1,94 +1,80 @@
 import express from "express";
+import bodyParser from "body-parser";
 import cors from "cors";
-import fetch from "node-fetch";
 
 const app = express();
 app.use(cors());
-app.use(express.json());
+app.use(bodyParser.json());
 
-// ----- Banco de usuários em memória (substituir por DB se quiser persistência real) -----
+// JSON online dos usuários (substitui banco)
 let users = [
-    {
-        username: "Ferraodev",
-        password: "Diogomiranda00k",
-        admin: true,
-        avatar: "https://via.placeholder.com/60",
-        plan: null,
-        keysGenerated: 0,
-        planLimit: 0,
-        planEnd: null,
-        keys: []
-    }
+  {
+    username: "Ferraodev",
+    password: "Diogomiranda00k",
+    admin: true,
+    plan: "basico",
+    planLimit: 500,
+    planEnd: null,
+    avatar: "https://via.placeholder.com/60",
+    keysGenerated: 0
+  }
 ];
 
-// ----- Endpoints -----
+// ==================== ROTAS ====================
 
-// GET todos usuários
-app.get("/dados", (req, res) => {
-    res.json({ users });
+// Listar todos usuários
+app.get("/users", (req, res) => {
+  res.json(users);
 });
 
-// POST criar usuário
-app.post("/dados", (req, res) => {
-    const { username, password, avatar } = req.body;
-    if(!username || !password) return res.status(400).json({ error: "Usuário e senha obrigatórios" });
-    if(users.find(u=>u.username===username)) return res.status(400).json({ error: "Usuário já existe" });
+// Criar novo usuário
+app.post("/users", (req, res) => {
+  const { username, password, avatar } = req.body;
+  if (!username || !password) return res.status(400).json({ error: "Preencha todos os campos" });
 
-    const newUser = {
-        username,
-        password,
-        avatar: avatar || "https://via.placeholder.com/60",
-        admin: false,
-        plan: null,
-        keysGenerated: 0,
-        planLimit: 0,
-        planEnd: null,
-        keys: []
-    };
+  // Verifica se já existe
+  if (users.find(u => u.username === username)) return res.status(400).json({ error: "Usuário já existe" });
 
-    users.push(newUser);
-    res.json({ success: true, user: newUser });
+  const newUser = {
+    username,
+    password,
+    admin: false,
+    plan: null,
+    planLimit: 0,
+    planEnd: null,
+    avatar: avatar || "https://via.placeholder.com/60",
+    keysGenerated: 0
+  };
+  users.push(newUser);
+  res.json(newUser);
 });
 
-// PATCH atualizar usuário (plano, keys, avatar etc)
-app.patch("/dados/:username", (req, res) => {
-    const user = users.find(u => u.username===req.params.username);
-    if(!user) return res.status(404).json({ error: "Usuário não encontrado" });
-
-    Object.assign(user, req.body);
-    res.json({ success: true, user });
+// Login
+app.post("/login", (req, res) => {
+  const { username, password } = req.body;
+  const user = users.find(u => u.username === username && u.password === password);
+  if (!user) return res.status(400).json({ error: "Usuário ou senha inválidos" });
+  res.json(user);
 });
 
-// ----- Conectar com API de keys -----
-app.post("/gerar-key/:username", async (req,res) => {
-    const { tipo } = req.body;
-    const user = users.find(u=>u.username===req.params.username);
-    if(!user) return res.status(404).json({error:"Usuário não encontrado"});
-    if(!user.plan) return res.status(403).json({error:"Usuário sem plano"});
-    if(user.keysGenerated>=user.planLimit) return res.status(403).json({error:"Limite de keys atingido"});
+// Atualizar usuário (planos, avatar, etc)
+app.patch("/users/:username", (req, res) => {
+  const { username } = req.params;
+  const user = users.find(u => u.username === username);
+  if (!user) return res.status(404).json({ error: "Usuário não encontrado" });
 
-    const novaKey = `FERRAO-CHEATS-${Math.random().toString(36).substring(2,10).toUpperCase()}`;
-    // Enviar para a API de keys
-    try{
-        await fetch("https://teste-api-mcok.vercel.app/keys", {
-            method:"POST",
-            headers:{"Content-Type":"application/json"},
-            body: JSON.stringify({
-                key: novaKey,
-                type: tipo,
-                used:false,
-                revoked:false,
-                device:null,
-                createdAt:new Date()
-            })
-        });
-    }catch(err){ console.error(err); return res.status(500).json({error:"Erro ao conectar com API de keys"}); }
+  const { plan, planLimit, planEnd, avatar, keysGenerated } = req.body;
+  if (plan !== undefined) user.plan = plan;
+  if (planLimit !== undefined) user.planLimit = planLimit;
+  if (planEnd !== undefined) user.planEnd = planEnd;
+  if (avatar !== undefined) user.avatar = avatar;
+  if (keysGenerated !== undefined) user.keysGenerated = keysGenerated;
 
-    user.keys.push({ key: novaKey, tipo, createdAt: new Date(), device:null, used:false });
-    user.keysGenerated++;
-    res.json({ success:true, key:novaKey });
+  res.json(user);
 });
 
-// Porta Vercel
-const port = process.env.PORT || 3000;
-app.listen(port, ()=>console.log(`API Users rodando na porta ${port}`));
+// ==================== INICIAR SERVIDOR ====================
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+  console.log(`API de usuários rodando na porta ${PORT}`);
+});
