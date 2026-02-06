@@ -6,92 +6,8 @@ const app = express();
 app.use(cors());
 app.use(bodyParser.json());
 
-// Base de dados em memória
-let users = [
-  {
-    id: "1",
-    username: "Ferraodev",
-    password: "Diogomiranda00k",
-    admin: true,
-    plan: "avancado",
-    planLimit: 999999,
-    planEnd: null,
-    avatar: "https://via.placeholder.com/60",
-    keysGenerated: 0,
-    device: null
-  }
-];
-
+// Base de dados de KEYS em memória
 let keys = [];
-
-// ==================== ROTAS DE USUÁRIOS ====================
-
-// GET - listar todos os usuários
-app.get("/dados", (req, res) => res.json(users));
-
-// POST - criar novo usuário
-app.post("/dados", (req, res) => {
-  const { username, password, avatar, plan } = req.body;
-  
-  if(!username || !password) {
-    return res.status(400).json({ error: "Preencha todos os campos" });
-  }
-  
-  if(users.find(u => u.username === username)) {
-    return res.status(400).json({ error: "Usuário já existe" });
-  }
-  
-  const newUser = {
-    id: Date.now().toString(),
-    username,
-    password,
-    admin: false,
-    plan: plan || "basico",
-    planLimit: plan === "avancado" ? 999999 : 500,
-    planEnd: null,
-    avatar: avatar || "https://via.placeholder.com/60",
-    keysGenerated: 0,
-    device: null
-  };
-  
-  users.push(newUser);
-  res.json(newUser);
-});
-
-// PUT - atualizar usuário
-app.put("/dados/:id", (req, res) => {
-  const { id } = req.params;
-  const user = users.find(u => u.id === id || u.username === id);
-  
-  if(!user) {
-    return res.status(404).json({ error: "Usuário não encontrado" });
-  }
-  
-  // Atualizar limite do plano se mudou
-  if(req.body.plan) {
-    req.body.planLimit = req.body.plan === "avancado" ? 999999 : 500;
-  }
-  
-  Object.assign(user, req.body);
-  res.json(user);
-});
-
-// DELETE - remover usuário
-app.delete("/dados/:id", (req, res) => {
-  const { id } = req.params;
-  const index = users.findIndex(u => u.id === id || u.username === id);
-  
-  if(index === -1) {
-    return res.status(404).json({ error: "Usuário não encontrado" });
-  }
-  
-  const removed = users.splice(index, 1)[0];
-  
-  // Remover todas as keys do usuário
-  keys = keys.filter(k => k.username !== removed.username);
-  
-  res.json(removed);
-});
 
 // ==================== ROTAS DE KEYS ====================
 
@@ -125,20 +41,6 @@ app.post("/keys", (req, res) => {
     return res.status(400).json({ error: "Key já existe" });
   }
   
-  // Verificar se usuário existe
-  const user = users.find(u => u.username === username);
-  if(!user) {
-    return res.status(404).json({ error: "Usuário não encontrado" });
-  }
-  
-  // Verificar limite do plano
-  const userKeysCount = keys.filter(k => k.username === username).length;
-  const limit = user.plan === "avancado" ? 999999 : 500;
-  
-  if(userKeysCount >= limit) {
-    return res.status(403).json({ error: "Limite de keys atingido" });
-  }
-  
   const newKey = {
     key,
     type,
@@ -149,9 +51,6 @@ app.post("/keys", (req, res) => {
   };
   
   keys.push(newKey);
-  
-  // Incrementar contador de keys geradas
-  user.keysGenerated = (user.keysGenerated || 0) + 1;
   
   res.json(newKey);
 });
@@ -186,7 +85,6 @@ app.delete("/keys/:key", (req, res) => {
 
 // GET - estatísticas
 app.get("/stats", (req, res) => {
-  const totalUsers = users.length;
   const totalKeys = keys.length;
   const activeKeys = keys.filter(k => !k.used).length;
   const expiredKeys = keys.filter(k => {
@@ -206,7 +104,6 @@ app.get("/stats", (req, res) => {
   }).length;
   
   res.json({
-    totalUsers,
     totalKeys,
     activeKeys,
     expiredKeys,
@@ -278,9 +175,8 @@ app.post("/activate/:key", (req, res) => {
 
 // ==================== INICIAR SERVIDOR ====================
 
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
-  console.log(`✅ API rodando na porta ${PORT}`);
-  console.log(`📊 Usuários: ${users.length}`);
-  console.log(`🔑 Keys: ${keys.length}`);
+  console.log(`✅ API de KEYS rodando na porta ${PORT}`);
+  console.log(`🔑 Total de keys: ${keys.length}`);
 });
