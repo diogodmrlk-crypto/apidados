@@ -6,7 +6,6 @@ const app = express();
 app.use(cors());
 app.use(bodyParser.json());
 
-// === Banco de usuários em memória (substituir por DB real se quiser) ===
 let users = [
   {
     username: "Ferraodev",
@@ -16,22 +15,19 @@ let users = [
     planLimit: 500,
     planEnd: null,
     avatar: "https://via.placeholder.com/60",
-    keysGenerated: 0
+    keysGenerated: 0,
+    device: null
   }
 ];
 
-// === ROTAS ===
+// GET - listar todos
+app.get("/dados", (req, res) => res.json(users));
 
-// Listar todos os usuários
-app.get("/dados", (req, res) => {
-  res.json(users);
-});
-
-// Criar novo usuário
+// POST - criar novo usuário
 app.post("/dados", (req, res) => {
   const { username, password, avatar } = req.body;
-  if (!username || !password) return res.status(400).json({ error: "Preencha todos os campos" });
-  if (users.find(x => x.username === username)) return res.status(400).json({ error: "Usuário já existe" });
+  if(!username || !password) return res.status(400).json({ error: "Preencha todos os campos" });
+  if(users.find(u => u.username === username)) return res.status(400).json({ error: "Usuário já existe" });
 
   const newUser = {
     username,
@@ -41,35 +37,32 @@ app.post("/dados", (req, res) => {
     planLimit: 0,
     planEnd: null,
     avatar: avatar || "https://via.placeholder.com/60",
-    keysGenerated: 0
+    keysGenerated: 0,
+    device: null
   };
 
   users.push(newUser);
   res.json(newUser);
 });
 
-// Atualizar usuário (atribuir plano, revogar plano, resetar device, etc.)
+// PUT - atualizar usuário
 app.put("/dados/:username", (req, res) => {
   const { username } = req.params;
-  const update = req.body;
-
   const user = users.find(u => u.username === username);
-  if (!user) return res.status(404).json({ error: "Usuário não encontrado" });
+  if(!user) return res.status(404).json({ error: "Usuário não encontrado" });
 
-  // Atualiza apenas os campos fornecidos
-  Object.assign(user, update);
+  Object.assign(user, req.body);
   res.json(user);
 });
 
-// Deletar usuário
-app.delete("/dados/:username", (req, res) => {
+// DELETE - remover usuário
+app.delete("/dados/:username", (req,res)=>{
   const { username } = req.params;
   const index = users.findIndex(u => u.username === username);
-  if (index === -1) return res.status(404).json({ error: "Usuário não encontrado" });
-  const removed = users.splice(index, 1)[0];
+  if(index === -1) return res.status(404).json({ error: "Usuário não encontrado" });
+  const removed = users.splice(index,1)[0];
   res.json(removed);
 });
 
-// Servidor
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log("API de usuários rodando na porta", PORT));
